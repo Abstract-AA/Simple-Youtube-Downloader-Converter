@@ -14,6 +14,7 @@ class YouTubeDownloader(Gtk.Window):
         self.set_default_size(845, 220)
 
         # Layout: Vertical Box
+        # Layout: Vertical Box
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         self.add(vbox)
 
@@ -92,15 +93,25 @@ class YouTubeDownloader(Gtk.Window):
         self.status_label = Gtk.Label(label="")
         vbox.pack_start(self.status_label, False, False, 0)
 
+        # hbox to hold the buttons
+        hbox_controls2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        hbox_controls2.set_halign(Gtk.Align.FILL)
+        hbox_controls2.set_hexpand(True)
+
         # Download Button
         download_button = Gtk.Button(label="Download")
         download_button.connect("clicked", self.download_video)
-        vbox.pack_start(download_button, False, False, 0)
+        download_button.set_hexpand(True)
+        hbox_controls2.pack_start(download_button, True, True, 0)
 
         # Stop Download Button
         stop_download_button = Gtk.Button(label="Stop Download")
         stop_download_button.connect("clicked", self.stop_download)
-        vbox.pack_start(stop_download_button, False, False, 0)
+        stop_download_button.set_hexpand(True) 
+        hbox_controls2.pack_start(stop_download_button, True, True, 0)
+
+        # Add hbox_controls2 at the bottom of the VBox
+        vbox.pack_end(hbox_controls2, False, False, 0)
 
         self.download_process = None  # Store the subprocess reference
         self.should_stop_download = False
