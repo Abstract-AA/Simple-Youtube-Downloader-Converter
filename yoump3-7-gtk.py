@@ -146,7 +146,7 @@ class YouTubeDownloader(Gtk.Window):
     def run_yt_dlp(self, command, output_filename):
         self.download_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
-        self.set_title(f"Now downloading: {output_filename}")
+        self.set_title(f"Now downloading...")
         for line in self.download_process.stdout:
             if self.should_stop_download:
                 break
@@ -173,8 +173,11 @@ class YouTubeDownloader(Gtk.Window):
         resolution = self.resolution_combo.get_active_text()
         audio_quality = self.audio_quality_combo.get_active_text()
 
-        if not url or not output_folder or not output_filename:
-            self.update_status("Error: Please fill in all the fields.")
+       if not output_filename:
+            output_filename='%(title)s'
+
+       if not url or not output_folder:
+            self.update_status("Error: Please fill in the URL and the output folder.")
             return
 
         # Construct yt-dlp command based on format
