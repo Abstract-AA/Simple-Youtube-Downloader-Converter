@@ -159,7 +159,7 @@ class YouTubeDownloader(Gtk.Window):
         elif self.should_stop_download:
             self.update_status("Download stopped.")
         else:
-            self.update_status("Download failed.")
+            self.update_status("Download failed, make sure to input a valid URL.")
 
         self.set_title("YouTube Video Downloader & Converter")
         self.download_process = None
