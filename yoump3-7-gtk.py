@@ -172,11 +172,12 @@ class YouTubeDownloader(Gtk.Window):
         output_format = self.format_combo.get_active_text()
         resolution = self.resolution_combo.get_active_text()
         audio_quality = self.audio_quality_combo.get_active_text()
+        
 
-       if not output_filename:
+        if not output_filename:
             output_filename='%(title)s'
 
-       if not url or not output_folder:
+        if not url or not output_folder:
             self.update_status("Error: Please fill in the URL and the output folder.")
             return
 
