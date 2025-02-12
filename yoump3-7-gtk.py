@@ -89,6 +89,11 @@ class YouTubeDownloader(Gtk.Window):
         self.audio_quality_combo.set_active(2)
         res_audio_hbox.pack_start(self.audio_quality_combo, True, True, 0)
 
+        # Add playlist checkbox
+        self.playlist_check = Gtk.CheckButton(label="Download Entire Playlist")
+        self.playlist_check.connect("toggled", self.toggle_filename_entry)
+        res_audio_hbox.pack_start(self.playlist_check, False, False, 10)
+
         # Status Label
         self.status_label = Gtk.Label(label="")
         vbox.pack_start(self.status_label, False, False, 0)
@@ -132,6 +137,12 @@ class YouTubeDownloader(Gtk.Window):
 
         dialog.destroy()
 
+    def toggle_filename_entry(self, widget):
+        is_checked = widget.get_active()
+        self.filename_entry.set_sensitive(not is_checked)
+        if is_checked:
+            self.filename_entry.set_text("")
+
     def update_status(self, message):
         GLib.idle_add(self.status_label.set_text, message)
 
@@ -172,7 +183,7 @@ class YouTubeDownloader(Gtk.Window):
         output_format = self.format_combo.get_active_text()
         resolution = self.resolution_combo.get_active_text()
         audio_quality = self.audio_quality_combo.get_active_text()
-        
+        download_playlist = self.playlist_check.get_active()
 
         if not output_filename:
             output_filename='%(title)s'
@@ -182,20 +193,24 @@ class YouTubeDownloader(Gtk.Window):
             return
 
         # Construct yt-dlp command based on format
+        common_options = []
+        if not download_playlist:
+            common_options.append("--no-playlist")
+
         if output_format == "Convert to MP3":
             command = [
                 "yt-dlp", "-f", "bestaudio", url,
                 "--extract-audio", "--audio-format", "mp3",
                 "--audio-quality", audio_quality,
                 "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s")
-            ]
+            ] + common_options
         elif output_format == "Download as MP4":
             format_code = f"bestvideo[height<={resolution[:-1]}]+bestaudio/best"
             command = [
                 "yt-dlp", "-f", format_code, url,
                 "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s"),
                 "--merge-output-format", "mp4"
-            ]
+            ] + common_options
         else:
             self.update_status("Error: Unsupported format selected.")
             return
