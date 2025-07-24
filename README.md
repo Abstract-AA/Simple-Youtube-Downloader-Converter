@@ -21,16 +21,18 @@ Due to the mimalistic design, the interface can blend well with multiple desktop
 First, to install the dependencies run the following in a system with Bash:
 
 ```bash
-sudo apt install yt-dlp                  # Debian/Ubuntu
-sudo dnf install yt-dlp                 # Fedora and its derivatives
-sudo apk add mpv yt-dlp  # Alpine Linux
-sudo pacman -S yt-dlp #Arch linux and its derivatives
+sudo apt install yt-dlp pygobject         # Debian/Ubuntu
+sudo dnf install yt-dlp pygobject         # Fedora and its derivatives
+sudo apk add mpv yt-dlp pygobject         # Alpine Linux
+sudo pacman -S yt-dlp pygobject           #Arch linux and its derivatives
 
 ```
 Then, move on to downloading the main file.
 
 ```bash
-wget 
+wget https://github.com/Abstract-AA/Simple-Youtube-Downloader-Converter/blob/be991b230006cbf7fbda72af1c970644b698d3cd/yoump3gtk.py
+
+python3 yoump3gtk.py
 
 ```
 
