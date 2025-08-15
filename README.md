@@ -6,7 +6,7 @@ This is a GTK based youtube video downloader. I created this yt-dlp frontend bec
 Due to the mimalistic design, the interface can blend well with multiple desktop enviroments. The main inspiration for the design is Rhythmbox. 
 
 
-![Alt Text](https://github.com/Abstract-AA/Simple-Youtube-Downloader-Converter/blob/main/Screenshot.png)
+![Alt Text]()
 
 
 ## Features
