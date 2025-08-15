@@ -16,7 +16,7 @@ from gi.repository import Gtk, Gdk, GLib, Gio
 
 class YouTubeDownloader(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="YouTube Video Downloader & Converter")
+        super().__init__(application=app, title="YTGrab")
         self.set_default_size(845, 220)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5,
