@@ -59,6 +59,10 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         self.audio_quality_combo = Gtk.DropDown(model=Gtk.StringList.new(["320kbps", "256kbps", "192kbps", "128kbps", "64kbps"]))
         self.audio_quality_combo.set_selected(2)
         res_audio_hbox.append(self.audio_quality_combo)
+        
+        self.clear_all_btn = Gtk.Button(label="Clear all") 
+        self.clear_all_btn.connect("clicked", self.clear_all) 
+        res_audio_hbox.append(self.clear_all_btn)
 
         self.playlist_check = Gtk.CheckButton(label="Download Entire Playlist")
         self.playlist_check.connect("toggled", self.toggle_filename_entry)
@@ -120,6 +124,11 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         end_iter = self.output_buffer.get_end_iter()
         self.output_buffer.insert(end_iter, message + "\n")
         self.output_view.scroll_to_iter(self.output_buffer.get_end_iter(), 0.0, False, 0, 0)
+        
+    def clear_all(self, button): 
+        self.filename_entry.set_text("") 
+        self.url_entry.set_text("") 
+        self.output_entry.set_text("")
 
     def stop_download(self, _btn):
         if self.download_process:
