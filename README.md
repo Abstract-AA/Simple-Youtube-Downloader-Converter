@@ -1,4 +1,4 @@
-# Simple-Youtube-Downloader-Converter
+# YTGrab
 
 
 This is a GTK based youtube video downloader. I created this yt-dlp frontend because I wanted a simple tool to download videos and songs. Playlist download is also supported. 
@@ -6,7 +6,7 @@ This is a GTK based youtube video downloader. I created this yt-dlp frontend bec
 Due to the mimalistic design, the interface can blend well with multiple desktop enviroments. The main inspiration for the design is Rhythmbox. 
 
 
-![Alt Text](https://github.com/Abstract-AA/Simple-Youtube-Downloader-Converter/blob/main/Screenshot.png)
+![Alt Text](https://github.com/Abstract-AA/YTGrab/blob/b344d19539b43c7a0b9f88d559c06263751e7d5b/Screenshot%20From%202025-08-16%2000-46-00.png)
 
 
 ## Features
