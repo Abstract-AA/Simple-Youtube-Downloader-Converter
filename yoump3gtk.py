@@ -4,10 +4,11 @@ import gi
 import subprocess
 import threading
 
-# Suppress MESA-INTEL debug noise
+# Suppress MESA-INTEL debug noise and avoid deprecated GL renderer warnings
 os.environ["MESA_NO_ERROR"] = "1"
-os.environ["MESA_DEBUG"] = "silent"  # silence Mesa driver warnings
-os.environ["GSK_RENDERER"] = "gl"     # avoid Vulkan path that prints FINISHME warnings
+os.environ["MESA_DEBUG"] = "silent"
+# Use Cairo renderer to avoid Vulkan and removed GL renderer warnings
+os.environ["GSK_RENDERER"] = "cairo"
 
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GLib, Gio
@@ -18,37 +19,28 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         super().__init__(application=app, title="YouTube Video Downloader & Converter")
         self.set_default_size(845, 220)
 
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        vbox.set_margin_top(12)
-        vbox.set_margin_bottom(12)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5,
+                       margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
         self.set_child(vbox)
 
-        grid = Gtk.Grid()
-        grid.set_column_homogeneous(False)
-        grid.set_row_spacing(8)
-        grid.set_column_spacing(10)
+        grid = Gtk.Grid(column_homogeneous=False, row_spacing=8, column_spacing=10)
         vbox.append(grid)
 
-        url_label = Gtk.Label(label="YouTube URL:", xalign=0)
-        grid.attach(url_label, 0, 0, 1, 1)
+        grid.attach(Gtk.Label(label="YouTube URL:", xalign=0), 0, 0, 1, 1)
         self.url_entry = Gtk.Entry(hexpand=True)
         grid.attach(self.url_entry, 1, 0, 1, 1)
         paste_button = Gtk.Button(label="Paste URL from Clipboard")
         paste_button.connect("clicked", self.paste_url_from_clipboard)
         grid.attach(paste_button, 2, 0, 1, 1)
 
-        output_label = Gtk.Label(label="Output Folder:", xalign=0)
-        grid.attach(output_label, 0, 1, 1, 1)
+        grid.attach(Gtk.Label(label="Output Folder:", xalign=0), 0, 1, 1, 1)
         self.output_entry = Gtk.Entry(hexpand=True)
         grid.attach(self.output_entry, 1, 1, 1, 1)
         select_folder_button = Gtk.Button(label="Select Output Folder")
         select_folder_button.connect("clicked", self.select_folder)
         grid.attach(select_folder_button, 2, 1, 1, 1)
 
-        filename_label = Gtk.Label(label="Output Filename:", xalign=0)
-        grid.attach(filename_label, 0, 2, 1, 1)
+        grid.attach(Gtk.Label(label="Output Filename:", xalign=0), 0, 2, 1, 1)
         self.filename_entry = Gtk.Entry(hexpand=True)
         grid.attach(self.filename_entry, 1, 2, 1, 1)
 
@@ -59,14 +51,12 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         res_audio_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         vbox.append(res_audio_hbox)
 
-        resolution_label = Gtk.Label(label="Select Resolution (MP4):")
-        res_audio_hbox.append(resolution_label)
+        res_audio_hbox.append(Gtk.Label(label="Select Resolution (MP4):"))
         self.resolution_combo = Gtk.DropDown(model=Gtk.StringList.new(["1080p", "720p", "480p", "360p", "240p"]))
         self.resolution_combo.set_selected(0)
         res_audio_hbox.append(self.resolution_combo)
 
-        audio_quality_label = Gtk.Label(label="Select Audio Quality (MP3):")
-        res_audio_hbox.append(audio_quality_label)
+        res_audio_hbox.append(Gtk.Label(label="Select Audio Quality (MP3):"))
         self.audio_quality_combo = Gtk.DropDown(model=Gtk.StringList.new(["320kbps", "256kbps", "192kbps", "128kbps", "64kbps"]))
         self.audio_quality_combo.set_selected(2)
         res_audio_hbox.append(self.audio_quality_combo)
@@ -78,18 +68,13 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         self.status_label = Gtk.Label(label="")
         vbox.append(self.status_label)
 
-        hbox_controls2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        hbox_controls2.set_halign(Gtk.Align.FILL)
-        hbox_controls2.set_hexpand(True)
-
-        download_button = Gtk.Button(label="Download")
+        hbox_controls2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10, halign=Gtk.Align.FILL, hexpand=True)
+        download_button = Gtk.Button(label="Download", hexpand=True)
         download_button.connect("clicked", self.download_video)
-        download_button.set_hexpand(True)
         hbox_controls2.append(download_button)
 
-        stop_download_button = Gtk.Button(label="Stop Download")
+        stop_download_button = Gtk.Button(label="Stop Download", hexpand=True)
         stop_download_button.connect("clicked", self.stop_download)
-        stop_download_button.set_hexpand(True)
         hbox_controls2.append(stop_download_button)
 
         vbox.append(hbox_controls2)
@@ -108,14 +93,13 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
 
     def select_folder(self, _btn):
         dialog = Gtk.FileDialog(title="Select Output Folder")
-        # Async API avoids deprecated GtkFileChooser widgets in GTK 4
         dialog.select_folder(self, None, self._on_folder_selected)
 
     def _on_folder_selected(self, dialog, result):
         try:
             folder = dialog.select_folder_finish(result)
         except GLib.Error:
-            return  # user likely cancelled
+            return
         if folder:
             path = folder.get_path()
             self.output_entry.set_text(path if path else folder.get_uri())
@@ -138,9 +122,7 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
             self.update_status("No active download to stop.")
 
     def run_yt_dlp(self, command, output_filename):
-        self.download_process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-        )
+        self.download_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         self.set_title("Now downloading...")
         for line in self.download_process.stdout:
             if self.should_stop_download:
@@ -185,19 +167,14 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
             common_options.append("--no-playlist")
 
         if output_format == "Convert to MP3":
-            command = [
-                "yt-dlp", "-f", "bestaudio", url,
-                "--extract-audio", "--audio-format", "mp3",
-                "--audio-quality", audio_quality,
-                "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s")
-            ] + common_options
+            command = ["yt-dlp", "-f", "bestaudio", url, "--extract-audio", "--audio-format", "mp3",
+                       "--audio-quality", audio_quality,
+                       "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s")] + common_options
         elif output_format == "Download as MP4":
             fmt_code = f"bestvideo[height<={resolution[:-1]}]+bestaudio/best"
-            command = [
-                "yt-dlp", "-f", fmt_code, url,
-                "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s"),
-                "--merge-output-format", "mp4"
-            ] + common_options
+            command = ["yt-dlp", "-f", fmt_code, url,
+                       "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s"),
+                       "--merge-output-format", "mp4"] + common_options
         else:
             self.update_status("Error: Unsupported format selected.")
             return
