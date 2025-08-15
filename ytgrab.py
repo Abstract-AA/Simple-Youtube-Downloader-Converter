@@ -13,11 +13,10 @@ os.environ["GSK_RENDERER"] = "cairo"
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GLib, Gio
 
-
 class YouTubeDownloader(Gtk.ApplicationWindow):
     def __init__(self, app):
-        super().__init__(application=app, title="YTGrab")
-        self.set_default_size(845, 220)
+        super().__init__(application=app, title="YouTube Video Downloader & Converter")
+        self.set_default_size(845, 300)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5,
                        margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
@@ -61,16 +60,16 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         self.audio_quality_combo.set_selected(2)
         res_audio_hbox.append(self.audio_quality_combo)
 
-        self.clear_all_btn = Gtk.Button(label="Clear all")
-        self.clear_all_btn.connect("clicked", self.clear_all)
-        res_audio_hbox.append(self.clear_all_btn)
-        
         self.playlist_check = Gtk.CheckButton(label="Download Entire Playlist")
         self.playlist_check.connect("toggled", self.toggle_filename_entry)
         res_audio_hbox.append(self.playlist_check)
 
-        self.status_label = Gtk.Label(label="")
-        vbox.append(self.status_label)
+        scrolled_window = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self.output_view = Gtk.TextView(editable=False, wrap_mode=Gtk.WrapMode.WORD_CHAR)
+        self.output_buffer = self.output_view.get_buffer()
+        scrolled_window.set_child(self.output_view)
+        vbox.append(scrolled_window)
 
         hbox_controls2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10, halign=Gtk.Align.FILL, hexpand=True)
         download_button = Gtk.Button(label="Download", hexpand=True)
@@ -113,22 +112,22 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         self.filename_entry.set_sensitive(not is_checked)
         if is_checked:
             self.filename_entry.set_text("")
-            
-    def clear_all(self, button):
-        self.filename_entry.set_text("")
-        self.url_entry.set_text("")
-        self.output_entry.set_text("")
-        
-    def update_status(self, message):
-        GLib.idle_add(self.status_label.set_text, message)
+
+    def append_output(self, message):
+        GLib.idle_add(self._append_output_text, message)
+
+    def _append_output_text(self, message):
+        end_iter = self.output_buffer.get_end_iter()
+        self.output_buffer.insert(end_iter, message + "\n")
+        self.output_view.scroll_to_iter(self.output_buffer.get_end_iter(), 0.0, False, 0, 0)
 
     def stop_download(self, _btn):
         if self.download_process:
             self.should_stop_download = True
             self.download_process.terminate()
-            self.update_status("Download stopped manually.")
+            self.append_output("Download stopped manually.")
         else:
-            self.update_status("No active download to stop.")
+            self.append_output("No active download to stop.")
 
     def run_yt_dlp(self, command, output_filename):
         self.download_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -136,15 +135,15 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
         for line in self.download_process.stdout:
             if self.should_stop_download:
                 break
-            self.update_status(line.strip())
+            self.append_output(line.strip())
 
         self.download_process.wait()
         if not self.should_stop_download and self.download_process.returncode == 0:
-            self.update_status("Download completed successfully.")
+            self.append_output("Download completed successfully.")
         elif self.should_stop_download:
-            self.update_status("Download stopped.")
+            self.append_output("Download stopped.")
         else:
-            self.update_status("Download failed, make sure to input a valid URL.")
+            self.append_output("Download failed, make sure to input a valid URL.")
 
         self.set_title("YouTube Video Downloader & Converter")
         self.download_process = None
@@ -168,7 +167,7 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
             output_filename = '%(title)s'
 
         if not url or not output_folder:
-            self.update_status("Error: Please fill in the URL and the output folder.")
+            self.append_output("Error: Please fill in the URL and the output folder.")
             return
 
         common_options = []
@@ -185,11 +184,10 @@ class YouTubeDownloader(Gtk.ApplicationWindow):
                        "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s"),
                        "--merge-output-format", "mp4"] + common_options
         else:
-            self.update_status("Error: Unsupported format selected.")
+            self.append_output("Error: Unsupported format selected.")
             return
 
         threading.Thread(target=self.run_yt_dlp, args=(command, output_filename)).start()
-
 
 class YouTubeApp(Gtk.Application):
     def __init__(self):
@@ -198,7 +196,6 @@ class YouTubeApp(Gtk.Application):
     def do_activate(self):
         win = YouTubeDownloader(self)
         win.present()
-
 
 if __name__ == "__main__":
     app = YouTubeApp()
