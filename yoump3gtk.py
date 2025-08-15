@@ -1,141 +1,124 @@
 #!/usr/bin/env python3
-import gi
-gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
-from yt_dlp import YoutubeDL
 import os
+import gi
 import subprocess
 import threading
 
-class YouTubeDownloader(Gtk.Window):
-    def __init__(self):
-        super().__init__(title="YouTube Video Downloader & Converter")
-        self.set_border_width(10)
+# Suppress MESA-INTEL debug noise
+os.environ["MESA_NO_ERROR"] = "1"
+os.environ["MESA_DEBUG"] = "silent"  # silence Mesa driver warnings
+os.environ["GSK_RENDERER"] = "gl"     # avoid Vulkan path that prints FINISHME warnings
+
+gi.require_version('Gtk', '4.0')
+from gi.repository import Gtk, Gdk, GLib, Gio
+
+
+class YouTubeDownloader(Gtk.ApplicationWindow):
+    def __init__(self, app):
+        super().__init__(application=app, title="YouTube Video Downloader & Converter")
         self.set_default_size(845, 220)
 
-        # Layout: Vertical Box
-        # Layout: Vertical Box
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.add(vbox)
+        vbox.set_margin_top(12)
+        vbox.set_margin_bottom(12)
+        vbox.set_margin_start(12)
+        vbox.set_margin_end(12)
+        self.set_child(vbox)
 
-        # Create a Grid to organize labels, entries, and buttons
         grid = Gtk.Grid()
         grid.set_column_homogeneous(False)
         grid.set_row_spacing(8)
         grid.set_column_spacing(10)
-        vbox.pack_start(grid, False, False, 0)
+        vbox.append(grid)
 
-        # YouTube URL Entry
         url_label = Gtk.Label(label="YouTube URL:", xalign=0)
         grid.attach(url_label, 0, 0, 1, 1)
-
         self.url_entry = Gtk.Entry(hexpand=True)
         grid.attach(self.url_entry, 1, 0, 1, 1)
-
         paste_button = Gtk.Button(label="Paste URL from Clipboard")
         paste_button.connect("clicked", self.paste_url_from_clipboard)
         grid.attach(paste_button, 2, 0, 1, 1)
 
-        # Output Folder Entry
         output_label = Gtk.Label(label="Output Folder:", xalign=0)
         grid.attach(output_label, 0, 1, 1, 1)
-
         self.output_entry = Gtk.Entry(hexpand=True)
         grid.attach(self.output_entry, 1, 1, 1, 1)
-
         select_folder_button = Gtk.Button(label="Select Output Folder")
         select_folder_button.connect("clicked", self.select_folder)
         grid.attach(select_folder_button, 2, 1, 1, 1)
 
-        # Output Filename Entry
         filename_label = Gtk.Label(label="Output Filename:", xalign=0)
         grid.attach(filename_label, 0, 2, 1, 1)
-
         self.filename_entry = Gtk.Entry(hexpand=True)
         grid.attach(self.filename_entry, 1, 2, 1, 1)
 
-        # Format Selection Dropdown
-        self.format_combo = Gtk.ComboBoxText()
-        self.format_combo.append_text("Convert to MP3")
-        self.format_combo.append_text("Download as MP4")
-        self.format_combo.set_active(0)
+        self.format_combo = Gtk.DropDown(model=Gtk.StringList.new(["Convert to MP3", "Download as MP4"]))
+        self.format_combo.set_selected(0)
         grid.attach(self.format_combo, 2, 2, 1, 1)
 
-        # Resolution and Audio Quality Side by Side, right below Output Filename
         res_audio_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        vbox.pack_start(res_audio_hbox, False, False, 0)
+        vbox.append(res_audio_hbox)
 
         resolution_label = Gtk.Label(label="Select Resolution (MP4):")
-        res_audio_hbox.pack_start(resolution_label, False, False, 0)
-
-        self.resolution_combo = Gtk.ComboBoxText()
-        self.resolution_combo.append_text("1080p")
-        self.resolution_combo.append_text("720p")
-        self.resolution_combo.append_text("480p")
-        self.resolution_combo.append_text("360p")
-        self.resolution_combo.append_text("240p")
-        self.resolution_combo.set_active(0)
-        res_audio_hbox.pack_start(self.resolution_combo, True, True, 0)
+        res_audio_hbox.append(resolution_label)
+        self.resolution_combo = Gtk.DropDown(model=Gtk.StringList.new(["1080p", "720p", "480p", "360p", "240p"]))
+        self.resolution_combo.set_selected(0)
+        res_audio_hbox.append(self.resolution_combo)
 
         audio_quality_label = Gtk.Label(label="Select Audio Quality (MP3):")
-        res_audio_hbox.pack_start(audio_quality_label, False, False, 0)
+        res_audio_hbox.append(audio_quality_label)
+        self.audio_quality_combo = Gtk.DropDown(model=Gtk.StringList.new(["320kbps", "256kbps", "192kbps", "128kbps", "64kbps"]))
+        self.audio_quality_combo.set_selected(2)
+        res_audio_hbox.append(self.audio_quality_combo)
 
-        self.audio_quality_combo = Gtk.ComboBoxText()
-        self.audio_quality_combo.append_text("320kbps")
-        self.audio_quality_combo.append_text("256kbps")
-        self.audio_quality_combo.append_text("192kbps")
-        self.audio_quality_combo.append_text("128kbps")
-        self.audio_quality_combo.append_text("64kbps")
-        self.audio_quality_combo.set_active(2)
-        res_audio_hbox.pack_start(self.audio_quality_combo, True, True, 0)
-
-        # Add playlist checkbox
         self.playlist_check = Gtk.CheckButton(label="Download Entire Playlist")
         self.playlist_check.connect("toggled", self.toggle_filename_entry)
-        res_audio_hbox.pack_start(self.playlist_check, False, False, 10)
+        res_audio_hbox.append(self.playlist_check)
 
-        # Status Label
         self.status_label = Gtk.Label(label="")
-        vbox.pack_start(self.status_label, False, False, 0)
+        vbox.append(self.status_label)
 
-        # hbox to hold the buttons
         hbox_controls2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         hbox_controls2.set_halign(Gtk.Align.FILL)
         hbox_controls2.set_hexpand(True)
 
-        # Download Button
         download_button = Gtk.Button(label="Download")
         download_button.connect("clicked", self.download_video)
         download_button.set_hexpand(True)
-        hbox_controls2.pack_start(download_button, True, True, 0)
+        hbox_controls2.append(download_button)
 
-        # Stop Download Button
         stop_download_button = Gtk.Button(label="Stop Download")
         stop_download_button.connect("clicked", self.stop_download)
-        stop_download_button.set_hexpand(True) 
-        hbox_controls2.pack_start(stop_download_button, True, True, 0)
+        stop_download_button.set_hexpand(True)
+        hbox_controls2.append(stop_download_button)
 
-        # Add hbox_controls2 at the bottom of the VBox
-        vbox.pack_end(hbox_controls2, False, False, 0)
+        vbox.append(hbox_controls2)
 
-        self.download_process = None  # Store the subprocess reference
+        self.download_process = None
         self.should_stop_download = False
 
-    def paste_url_from_clipboard(self, widget):
-        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
-        url = clipboard.wait_for_text()
+    def paste_url_from_clipboard(self, _btn):
+        clipboard = Gdk.Display.get_default().get_clipboard()
+        clipboard.read_text_async(None, self._on_clipboard_text)
+
+    def _on_clipboard_text(self, clipboard, res):
+        url = clipboard.read_text_finish(res)
         if url:
             self.url_entry.set_text(url)
 
-    def select_folder(self, widget):
-        dialog = Gtk.FileChooserDialog(title="Select Output Folder", action=Gtk.FileChooserAction.SELECT_FOLDER)
-        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
+    def select_folder(self, _btn):
+        dialog = Gtk.FileDialog(title="Select Output Folder")
+        # Async API avoids deprecated GtkFileChooser widgets in GTK 4
+        dialog.select_folder(self, None, self._on_folder_selected)
 
-        if dialog.run() == Gtk.ResponseType.OK:
-            folder = dialog.get_filename()
-            self.output_entry.set_text(folder)
-
-        dialog.destroy()
+    def _on_folder_selected(self, dialog, result):
+        try:
+            folder = dialog.select_folder_finish(result)
+        except GLib.Error:
+            return  # user likely cancelled
+        if folder:
+            path = folder.get_path()
+            self.output_entry.set_text(path if path else folder.get_uri())
 
     def toggle_filename_entry(self, widget):
         is_checked = widget.get_active()
@@ -146,25 +129,25 @@ class YouTubeDownloader(Gtk.Window):
     def update_status(self, message):
         GLib.idle_add(self.status_label.set_text, message)
 
-    def stop_download(self, widget):
+    def stop_download(self, _btn):
         if self.download_process:
             self.should_stop_download = True
-            self.download_process.terminate()  # Terminate the download process
+            self.download_process.terminate()
             self.update_status("Download stopped manually.")
         else:
             self.update_status("No active download to stop.")
 
     def run_yt_dlp(self, command, output_filename):
-        self.download_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-
-        self.set_title(f"Now downloading...")
+        self.download_process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+        self.set_title("Now downloading...")
         for line in self.download_process.stdout:
             if self.should_stop_download:
                 break
             self.update_status(line.strip())
 
         self.download_process.wait()
-
         if not self.should_stop_download and self.download_process.returncode == 0:
             self.update_status("Download completed successfully.")
         elif self.should_stop_download:
@@ -175,24 +158,28 @@ class YouTubeDownloader(Gtk.Window):
         self.set_title("YouTube Video Downloader & Converter")
         self.download_process = None
 
-    def download_video(self, widget):
+    def _dropdown_text(self, dropdown):
+        model = dropdown.get_model()
+        pos = dropdown.get_selected()
+        return model.get_string(pos) if pos != Gtk.INVALID_LIST_POSITION else None
+
+    def download_video(self, _btn):
         self.should_stop_download = False
         url = self.url_entry.get_text()
         output_folder = self.output_entry.get_text()
         output_filename = self.filename_entry.get_text()
-        output_format = self.format_combo.get_active_text()
-        resolution = self.resolution_combo.get_active_text()
-        audio_quality = self.audio_quality_combo.get_active_text()
+        output_format = self._dropdown_text(self.format_combo)
+        resolution = self._dropdown_text(self.resolution_combo)
+        audio_quality = self._dropdown_text(self.audio_quality_combo)
         download_playlist = self.playlist_check.get_active()
 
         if not output_filename:
-            output_filename='%(title)s'
+            output_filename = '%(title)s'
 
         if not url or not output_folder:
             self.update_status("Error: Please fill in the URL and the output folder.")
             return
 
-        # Construct yt-dlp command based on format
         common_options = []
         if not download_playlist:
             common_options.append("--no-playlist")
@@ -205,9 +192,9 @@ class YouTubeDownloader(Gtk.Window):
                 "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s")
             ] + common_options
         elif output_format == "Download as MP4":
-            format_code = f"bestvideo[height<={resolution[:-1]}]+bestaudio/best"
+            fmt_code = f"bestvideo[height<={resolution[:-1]}]+bestaudio/best"
             command = [
-                "yt-dlp", "-f", format_code, url,
+                "yt-dlp", "-f", fmt_code, url,
                 "-o", os.path.join(output_folder, f"{output_filename}.%(ext)s"),
                 "--merge-output-format", "mp4"
             ] + common_options
@@ -215,11 +202,18 @@ class YouTubeDownloader(Gtk.Window):
             self.update_status("Error: Unsupported format selected.")
             return
 
-        # Run yt-dlp in a separate thread
         threading.Thread(target=self.run_yt_dlp, args=(command, output_filename)).start()
 
-# Start the application
-win = YouTubeDownloader()
-win.connect("destroy", Gtk.main_quit)
-win.show_all()
-Gtk.main()
+
+class YouTubeApp(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id="com.example.ytdlp_gui")
+
+    def do_activate(self):
+        win = YouTubeDownloader(self)
+        win.present()
+
+
+if __name__ == "__main__":
+    app = YouTubeApp()
+    app.run()
