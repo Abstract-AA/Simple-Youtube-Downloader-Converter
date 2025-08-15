@@ -87,7 +87,7 @@ This project, is provided for **educational and personal use only**. By using th
 
 4. **No Warranty**: The developer assumes no liability for misuse of this tool or copyright infringement by end users.
 
-**Important**: YouTube/Spotify's Terms of Service prohibit unauthorized access to their content. This tool is not affiliated with or endorsed by YouTube, or any content providers.
+**Important**: YouTube's Terms of Service prohibit unauthorized access to their content. This tool is not affiliated with or endorsed by YouTube, or any content providers.
 
 Consult legal counsel if uncertain about compliance in your region.
 
